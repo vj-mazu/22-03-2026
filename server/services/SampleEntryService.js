@@ -502,7 +502,8 @@ class SampleEntryService {
         entryData.workflowStatus = 'FAILED';
         entryData.lotSelectionDecision = 'FAIL';
         entryData.failRemarks = `Failed: ${toTitleCaseWords(entryData.smellType)} Smell`; 
-      } else if (entryData.entryType === 'RICE_SAMPLE') {
+      }
+ else if (entryData.entryType === 'RICE_SAMPLE') {
         entryData.workflowStatus = 'COOKING_REPORT';
       } else {
         entryData.workflowStatus = 'STAFF_ENTRY';
@@ -651,6 +652,17 @@ class SampleEntryService {
       if (updates.partyName !== undefined) updates.partyName = toTitleCaseWords(updates.partyName);
       if (updates.variety !== undefined) updates.variety = toTitleCaseWords(updates.variety);
       if (updates.brokerName !== undefined) updates.brokerName = toTitleCaseWords(updates.brokerName);
+
+      // Handle auto-fail for smell updates (Medium, Dark, Orange ONLY)
+      const updatedSmellType = updates.smellType !== undefined ? updates.smellType : currentEntry.smellType;
+      const updatedSmellHas = updates.smellHas !== undefined ? updates.smellHas : currentEntry.smellHas;
+      
+      if (updatedSmellHas && ['MEDIUM', 'DARK', 'ORANGE'].includes(String(updatedSmellType).toUpperCase())) {
+        updates.lotSelectionDecision = 'FAIL';
+        updates.lotSelectionAt = new Date();
+        updates.lotSelectionByUserId = userId;
+        updates.failRemarks = `Failed: ${toTitleCaseWords(updatedSmellType)} Smell`;
+      }
 
       const updatedEntry = await SampleEntryRepository.update(id, updates);
 

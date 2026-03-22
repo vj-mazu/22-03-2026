@@ -100,10 +100,29 @@ class QualityParametersService {
       // Log audit trail
       await AuditService.logCreate(userId, 'quality_parameters', quality.id, quality);
 
-      // Fetch the sample entry to check its status
       const sampleEntry = await SampleEntryRepository.findById(qualityData.sampleEntryId);
       const workflowStatus = String(sampleEntry?.workflowStatus || '').toUpperCase();
       const lotSelectionDecision = String(sampleEntry?.lotSelectionDecision || '').toUpperCase();
+
+      // Auto-fail logic for smell (Medium, Dark, Orange ONLY)
+      const shouldAutoFail = qualityData.smellHas && ['MEDIUM', 'DARK', 'ORANGE'].includes(String(qualityData.smellType).toUpperCase());
+      if (shouldAutoFail && sampleEntry && lotSelectionDecision !== 'FAIL') {
+        console.log(`[QUALITY] Auto-failing entry ${qualityData.sampleEntryId} due to smell: ${qualityData.smellType}`);
+        await SampleEntryRepository.update(qualityData.sampleEntryId, {
+          lotSelectionDecision: 'FAIL',
+          lotSelectionAt: new Date(),
+          lotSelectionByUserId: userId,
+          failRemarks: `Auto-failed due to smell: ${qualityData.smellType || 'Yes'}`,
+          smellHas: true,
+          smellType: qualityData.smellType
+        });
+      } else if (sampleEntry) {
+        // Sync smell data regardless of type (but don't auto-fail if it's Light)
+        await SampleEntryRepository.update(qualityData.sampleEntryId, {
+          smellHas: !!qualityData.smellHas,
+          smellType: qualityData.smellType || null
+        });
+      }
 
       // Transition workflow to LOT_SELECTION (from STAFF_ENTRY) once quality is added
       if (sampleEntry) {
@@ -228,6 +247,25 @@ class QualityParametersService {
 
       // Update quality parameters
       const updated = await QualityParametersRepository.update(id, updates);
+
+      // Auto-fail logic for smell (Medium, Dark, Orange ONLY) - sync to SampleEntry
+      const shouldAutoFailPostUpdate = updates.smellHas && ['MEDIUM', 'DARK', 'ORANGE'].includes(String(updates.smellType).toUpperCase());
+      if (shouldAutoFailPostUpdate) {
+        await SampleEntryRepository.update(updates.sampleEntryId, {
+          lotSelectionDecision: 'FAIL',
+          lotSelectionAt: new Date(),
+          lotSelectionByUserId: userId,
+          failRemarks: `Auto-failed due to smell: ${updates.smellType || 'Yes'}`,
+          smellHas: true,
+          smellType: updates.smellType
+        });
+      } else if (updates.smellHas !== undefined) {
+        // Sync smell even if not auto-failing
+        await SampleEntryRepository.update(updates.sampleEntryId, {
+          smellHas: !!updates.smellHas,
+          smellType: updates.smellType || null
+        });
+      }
 
       // Log audit trail
       await AuditService.logUpdate(userId, 'quality_parameters', id, current, updated);

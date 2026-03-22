@@ -18,7 +18,8 @@ class QualityParametersRepository {
    */
   async findBySampleEntryId(sampleEntryId) {
     const quality = await QualityParameters.findOne({
-      where: { sampleEntryId }
+      where: { sampleEntryId },
+      order: [['createdAt', 'DESC']]
     });
     return quality ? quality.toJSON() : null;
   }
@@ -45,7 +46,8 @@ class QualityParametersRepository {
    */
   async updateBySampleEntryId(sampleEntryId, updates) {
     const quality = await QualityParameters.findOne({
-      where: { sampleEntryId }
+      where: { sampleEntryId },
+      order: [['createdAt', 'DESC']]
     });
     if (!quality) return null;
     

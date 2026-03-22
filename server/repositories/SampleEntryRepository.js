@@ -334,24 +334,41 @@ class SampleEntryRepository {
     if (filters.startDate || filters.endDate) {
       // For resample entries, also match by updatedAt (allotment date)
       // so entries allotted on 22nd but entered on 15th still appear
+      const formatYMD = (val) => {
+        if (!val) return null;
+        if (val instanceof Date) {
+          if (isNaN(val)) return null;
+          // Use local time, not UTC (toISOString)
+          const y = val.getFullYear();
+          const m = String(val.getMonth() + 1).padStart(2, '0');
+          const d = String(val.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+        return String(val).split('T')[0];
+      };
+      
+      const startYMD = formatYMD(filters.startDate);
+      const endYMD = formatYMD(filters.endDate);
+
       const dateCondition = {};
-      if (filters.startDate && !filters.endDate) {
-        dateCondition.entryDate = filters.startDate;
+      if (startYMD && !endYMD) {
+        dateCondition.entryDate = startYMD;
       } else {
         dateCondition.entryDate = {};
-        if (filters.startDate) dateCondition.entryDate[Op.gte] = filters.startDate;
-        if (filters.endDate) dateCondition.entryDate[Op.lte] = filters.endDate;
+        if (startYMD) dateCondition.entryDate[Op.gte] = startYMD;
+        if (endYMD) dateCondition.entryDate[Op.lte] = endYMD;
       }
+
       const resampleDateCondition = {};
-      if (filters.startDate && !filters.endDate) {
+      if (startYMD && !endYMD) {
         resampleDateCondition.updatedAt = {
-          [Op.gte]: new Date(filters.startDate + 'T00:00:00'),
-          [Op.lt]: new Date(new Date(filters.startDate + 'T00:00:00').getTime() + 86400000)
+          [Op.gte]: new Date(`${startYMD}T00:00:00.000Z`),
+          [Op.lt]: new Date(new Date(`${startYMD}T00:00:00.000Z`).getTime() + 86400000)
         };
       } else {
         resampleDateCondition.updatedAt = {};
-        if (filters.startDate) resampleDateCondition.updatedAt[Op.gte] = new Date(filters.startDate + 'T00:00:00');
-        if (filters.endDate) resampleDateCondition.updatedAt[Op.lt] = new Date(new Date(filters.endDate + 'T00:00:00').getTime() + 86400000);
+        if (startYMD) resampleDateCondition.updatedAt[Op.gte] = new Date(`${startYMD}T00:00:00.000Z`);
+        if (endYMD) resampleDateCondition.updatedAt[Op.lt] = new Date(new Date(`${endYMD}T00:00:00.000Z`).getTime() + 86400000);
       }
       where[Op.and] = [
         ...(where[Op.and] || []),

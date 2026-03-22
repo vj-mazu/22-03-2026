@@ -1949,7 +1949,7 @@ const SampleEntryPage: React.FC<{
                         textAlign: 'center',
                         letterSpacing: '0.5px'
                       }}>
-                        {(() => { const d = new Date(brokerEntries[0]?.entryDate); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; })()}
+                        {(() => { const d = getEffectiveDate(brokerEntries[0]); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; })()}
                         &nbsp;&nbsp;{filterEntryType === 'RICE_SAMPLE' ? 'Rice Sample' : 'Paddy Sample'}
                       </div>}
                       {/* Broker name bar */}
@@ -4199,6 +4199,7 @@ const SampleEntryPage: React.FC<{
           detailEntry={detailEntry as any}
           detailMode={detailMode}
           onClose={() => setDetailEntry(null)}
+          onUpdate={() => loadEntries()}
         />
       )}
       {showPhotoOnlyModal && photoOnlyEntry && (

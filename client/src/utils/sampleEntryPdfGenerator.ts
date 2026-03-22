@@ -78,6 +78,30 @@ const toTitleCase = (str: string) => {
 };
 
 /**
+ * Helper to determine the effective date of an entry (handling resamples)
+ */
+const getEffectiveDate = (entry: any): Date => {
+  const hasResampleFlow = String(entry?.lotSelectionDecision || '').trim().toUpperCase() === 'FAIL'
+    || (Array.isArray(entry?.resampleCollectedTimeline) && entry.resampleCollectedTimeline.length > 0)
+    || (Array.isArray(entry?.resampleCollectedHistory) && entry.resampleCollectedHistory.length > 0)
+    || Number(entry?.qualityReportAttempts || 0) > 1;
+    
+  if (hasResampleFlow && Array.isArray(entry?.resampleCollectedTimeline) && entry.resampleCollectedTimeline.length > 0) {
+    const lastAssigned = entry.resampleCollectedTimeline[entry.resampleCollectedTimeline.length - 1];
+    if (lastAssigned && lastAssigned.date) {
+      return new Date(lastAssigned.date);
+    }
+  }
+  // Fallback for resample entries: use lotSelectionAt or updatedAt (allotment date)
+  if (hasResampleFlow) {
+    if (entry?.resampleStartAt) return new Date(entry.resampleStartAt);
+    if (entry?.lotSelectionAt) return new Date(entry.lotSelectionAt);
+    if (entry?.updatedAt) return new Date(entry.updatedAt);
+  }
+  return new Date(entry.entryDate);
+};
+
+/**
  * Main export for Sample Entry PDF Generation (Portrait Mode)
  */
 export const generateSampleEntryPDF = (
@@ -116,14 +140,14 @@ export const generateSampleEntryPDF = (
     // Sorting logic (Initial sort by date descending)
     // Avoid large spreads [...] to save memory
     records.sort((a, b) => {
-        return new Date(b.entryDate || 0).getTime() - new Date(a.entryDate || 0).getTime();
+        return getEffectiveDate(b).getTime() - getEffectiveDate(a).getTime();
     });
 
     // Grouping logic (Matches frontend) - Using Map for better performance with millions of records
     const grouped = new Map<string, Map<string, any[]>>();
     
     for (const entry of records) {
-        const d = new Date(entry.entryDate);
+        const d = getEffectiveDate(entry);
         const dateKey = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
         const brokerKey = entry.brokerName || 'Unknown';
         

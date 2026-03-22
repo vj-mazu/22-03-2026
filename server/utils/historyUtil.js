@@ -204,7 +204,7 @@ const attachLoadingLotsHistories = async (rows) => {
           actionType: { [Op.in]: ['CREATE', 'UPDATE', 'WORKFLOW_TRANSITION'] },
           recordId: { [Op.in]: sampleEntryIds }
         },
-        attributes: ['recordId', 'actionType', 'newValues', 'createdAt', 'metadata'],
+        attributes: ['recordId', 'actionType', 'oldValues', 'newValues', 'createdAt', 'metadata'],
         order: [['createdAt', 'ASC']],
         raw: true
       })
@@ -400,7 +400,11 @@ const attachLoadingLotsHistories = async (rows) => {
       // Include transitions to QUALITY_CHECK (recheck/resample assignment)
       if (nv.workflowStatus === 'QUALITY_CHECK') return true;
       // Include transitions to LOT_SELECTION with resampleQualitySaved flag (resample quality saved)
-      if (nv.workflowStatus === 'LOT_SELECTION' && metadata.resampleQualitySaved === true) return true;
+      // BUT: only if it wasn't already in QUALITY_CHECK (because QUALITY_CHECK transition already started the boundary)
+      if (nv.workflowStatus === 'LOT_SELECTION' && metadata.resampleQualitySaved === true) {
+        const ov = normalizeAuditMetadata(l.oldValues) || {};
+        if (ov.workflowStatus !== 'QUALITY_CHECK') return true;
+      }
       return false;
     });
     

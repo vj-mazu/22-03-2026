@@ -160,15 +160,27 @@ class QualityParametersService {
           }
         }
 
-        if (!transitioned && lotSelectionDecision === 'FAIL' && ['QUALITY_CHECK', 'FINAL_REPORT', 'LOT_ALLOTMENT'].includes(workflowStatus)) {
-          console.log(`[QUALITY] Transitioning resample entry ${qualityData.sampleEntryId} from ${workflowStatus} to LOT_SELECTION`);
-          await WorkflowEngine.transitionTo(
-            qualityData.sampleEntryId,
-            'LOT_SELECTION',
-            userId,
-            userRole,
-            { resampleQualitySaved: true }
+        if (!transitioned && lotSelectionDecision === 'FAIL' && ['QUALITY_CHECK', 'FINAL_REPORT', 'LOT_ALLOTMENT', 'STAFF_ENTRY'].includes(workflowStatus)) {
+          // Only transition if we haven't logged this resample completion yet (prevents 3rd sample duplication)
+          const history = await AuditService.getRecordHistory('sample_entries', qualityData.sampleEntryId);
+          const alreadyLogged = (history || []).some(log => 
+            log.actionType === 'WORKFLOW_TRANSITION' && 
+            log.newValues?.workflowStatus === 'LOT_SELECTION' && 
+            log.metadata?.resampleQualitySaved === true
           );
+
+          if (!alreadyLogged) {
+            console.log(`[QUALITY] Transitioning resample entry ${qualityData.sampleEntryId} from ${workflowStatus} to LOT_SELECTION`);
+            await WorkflowEngine.transitionTo(
+              qualityData.sampleEntryId,
+              'LOT_SELECTION',
+              userId,
+              userRole,
+              { resampleQualitySaved: true }
+            );
+          } else {
+            console.log(`[QUALITY] Resample quality already logged for ${qualityData.sampleEntryId}, skipping transition`);
+          }
           transitioned = true;
         }
 
@@ -233,16 +245,26 @@ class QualityParametersService {
               || (lotSelectionDecision === 'FAIL' && ['QUALITY_CHECK', 'FINAL_REPORT', 'LOT_ALLOTMENT'].includes(workflowStatus))
             )
           ) {
-            // Super bypass: if resample and lot has existing CookingReport, route to COOKING_REPORT
-            let targetStatus = 'LOT_SELECTION';
-            // (Removed the CookingReport super bypass block so targetStatus stays LOT_SELECTION for resamples)
-            await WorkflowEngine.transitionTo(
-              updates.sampleEntryId,
-              targetStatus,
-              userId,
-              userRole,
-              lotSelectionDecision === 'FAIL' ? { resampleQualitySaved: true } : {}
+            // Only transition if we haven't logged this resample completion yet
+            const history = await AuditService.getRecordHistory('sample_entries', updates.sampleEntryId);
+            const alreadyLogged = (history || []).some(log => 
+              log.actionType === 'WORKFLOW_TRANSITION' && 
+              log.newValues?.workflowStatus === 'LOT_SELECTION' && 
+              log.metadata?.resampleQualitySaved === true
             );
+
+            if (!alreadyLogged) {
+              let targetStatus = 'LOT_SELECTION';
+              await WorkflowEngine.transitionTo(
+                updates.sampleEntryId,
+                targetStatus,
+                userId,
+                userRole,
+                lotSelectionDecision === 'FAIL' ? { resampleQualitySaved: true } : {}
+              );
+            } else {
+              console.log(`[QUALITY] Resample quality already logged for ${updates.sampleEntryId}, skipping redundant transition`);
+            }
           }
         } catch (weErr) {
           console.log(`[QUALITY] WE transition failed: ${weErr.message}`);

@@ -329,10 +329,13 @@ const getQualityAttemptsForEntry = (entry: any) => {
 
 
 
-export const SampleEntryDetailModal = ({ detailEntry, detailMode, onClose }: { detailEntry: SampleEntry, detailMode: 'quick' | 'history' | 'summary' | 'full', onClose: () => void }) => {
+export const SampleEntryDetailModal = ({ detailEntry, detailMode, onClose, onUpdate }: { detailEntry: SampleEntry, detailMode: 'quick' | 'history' | 'summary' | 'full', onClose: () => void, onUpdate?: () => void }) => {
     const [supervisors, setSupervisors] = useState<any[]>([]);
     const [cookingInput, setCookingInput] = useState<any>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [isCapturingGps, setIsCapturingGps] = useState(false);
+    const [isSavingGps, setIsSavingGps] = useState(false);
+    const [localGps, setLocalGps] = useState<string | null>((detailEntry as any).gpsCoordinates || null);
     const [remarksPopup, setRemarksPopup] = useState({ isOpen: false, text: '' });
     const [pricingDetail, setPricingDetail] = useState<{ entry: SampleEntry, mode: 'offer' | 'final' } | null>(null);
 
@@ -354,6 +357,50 @@ export const SampleEntryDetailModal = ({ detailEntry, detailMode, onClose }: { d
         if (!val) {
             onClose();
         }
+    };
+
+    const handleCaptureAndSaveGps = () => {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser');
+            return;
+        }
+
+        setIsCapturingGps(true);
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                const coords = `${latitude},${longitude}`;
+                
+                try {
+                    setIsSavingGps(true);
+                    // Use multipart/form-data because the backend PUT /:id route uses it
+                    const formData = new FormData();
+                    formData.append('gpsCoordinates', coords);
+
+                    await axios.put(`${API_URL}/api/sample-entries/${detailEntry.id}`, formData, {
+                        headers: {
+                            Authorization: `Bearer ${localStorage.getItem('token')}`,
+                            'Content-Type': 'multipart/form-data'
+                        }
+                    });
+
+                    setLocalGps(coords);
+                    if (onUpdate) onUpdate();
+                } catch (error: any) {
+                    console.error('Failed to save GPS:', error);
+                    alert(error.response?.data?.error || 'Failed to save GPS coordinates');
+                } finally {
+                    setIsCapturingGps(false);
+                    setIsSavingGps(false);
+                }
+            },
+            (error) => {
+                console.error('GPS error:', error);
+                setIsCapturingGps(false);
+                alert('Failed to capture GPS location. Please ensure location permissions are enabled.');
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
     };
 
 
@@ -1308,18 +1355,41 @@ const buildQualityStatusRows = (entry: SampleEntry) => {
                                 {detailEntry.entryType === 'LOCATION_SAMPLE' && (
                                     <>
                                         <h4 style={{ margin: '12px 0 10px', fontSize: '13px', color: '#e67e22', borderBottom: '2px solid #e67e22', paddingBottom: '6px' }}>📍 Location Details</h4>
-                                        {(detailEntry as any).gpsCoordinates && (
+                                        {localGps ? (
                                             <div style={{ marginBottom: '10px' }}>
                                                 <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '6px', border: '1px solid #e0e0e0', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <div style={{ fontSize: '11px', color: '#666', fontWeight: '800', textTransform: 'uppercase' }}>GPS Coordinates Captured</div>
                                                     <a
-                                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detailEntry as any).gpsCoordinates)}`}
+                                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(localGps)}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={{ display: 'inline-block', padding: '6px 16px', background: '#e67e22', color: 'white', borderRadius: '4px', textDecoration: 'none', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px' }}
                                                     >
                                                         MAP LINK
                                                     </a>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ marginBottom: '10px' }}>
+                                                <div style={{ background: '#fff7ed', padding: '12px', borderRadius: '6px', border: '1px solid #ffedd5', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ fontSize: '11px', color: '#9a3412', fontWeight: '800', textTransform: 'uppercase' }}>GPS Location Skipped</div>
+                                                    <button
+                                                        onClick={handleCaptureAndSaveGps}
+                                                        disabled={isCapturingGps || isSavingGps}
+                                                        style={{ 
+                                                            padding: '6px 16px', 
+                                                            background: '#3498db', 
+                                                            color: 'white', 
+                                                            borderRadius: '4px', 
+                                                            border: 'none',
+                                                            fontSize: '11px', 
+                                                            fontWeight: '800', 
+                                                            cursor: 'pointer',
+                                                            opacity: (isCapturingGps || isSavingGps) ? 0.7 : 1
+                                                        }}
+                                                    >
+                                                        {isCapturingGps ? 'Capturing...' : isSavingGps ? 'Saving...' : 'Add GPS'}
+                                                    </button>
                                                 </div>
                                             </div>
                                         )}

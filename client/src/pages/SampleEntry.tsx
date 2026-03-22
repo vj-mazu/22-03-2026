@@ -1303,7 +1303,7 @@ const SampleEntryPage: React.FC<{
     const reportedByValue = qualityData.reportedBy || '';
     if (!reportedByValue || reportedByValue.trim() === '') { showNotification('Sample Reported By is required', 'error'); return; }
     // Smell validation removed as it's read-only from entry
-    if (String(qualityData.grainsCount) === '0' || isMissing(qualityData.grainsCount)) { showNotification('Grains count is required', 'error'); return; }
+    if (isMissing(qualityData.grainsCount)) { showNotification('Grains count is required', 'error'); return; }
 
     if (selectedEntry?.entryType === 'RICE_SAMPLE') {
       // All fields mandatory for Rice except toggles

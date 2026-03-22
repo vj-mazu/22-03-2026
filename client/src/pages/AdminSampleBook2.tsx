@@ -776,6 +776,8 @@ const buildQualityStatusRows = (entry: SampleEntry) => {
 
         if (rows.length === 0) {
             if (isFailDecision) {
+                const isSmellEntry = entry.failRemarks && entry.failRemarks.toLowerCase().includes('smell');
+                if (isSmellEntry) return []; // Return empty for smell auto-fail
                 return [{ type: 'Pending', status: 'Resampling' }];
             }
             if (isQualityRecheckPending && !isCookingOnlyRecheck) {
@@ -787,7 +789,10 @@ const buildQualityStatusRows = (entry: SampleEntry) => {
         // FIXED: Show resample status correctly
         // If FAIL decision and no resample quality yet, show "Pending/Resampling"
         if (isFailDecision && !hasCurrentResampleQuality) {
-            rows.push({ type: 'Pending', status: 'Resampling' });
+            const isSmellEntry = entry.failRemarks && entry.failRemarks.toLowerCase().includes('smell');
+            if (!isSmellEntry) {
+                rows.push({ type: 'Pending', status: 'Resampling' });
+            }
         } 
         // If FAIL decision and resample quality exists but only 1 row (shouldn't happen but handle it)
         else if (isFailDecision && hasCurrentResampleQuality && rows.length === 1) {
@@ -945,6 +950,15 @@ const buildQualityStatusRows = (entry: SampleEntry) => {
 
         if (rows.length === 0) {
             if (entry.workflowStatus === 'CANCELLED') return <span style={{ color: '#999', fontSize: '10px' }}>-</span>;
+            
+            // Check if it's a smell auto-fail decision
+            const isFailDecision = String(entry.lotSelectionDecision || '').toUpperCase() === 'FAIL' 
+                && String(entry.workflowStatus || '').toUpperCase() !== 'FAILED';
+            const isSmellEntry = entry.failRemarks && entry.failRemarks.toLowerCase().includes('smell');
+            if (isFailDecision && isSmellEntry) {
+                return null; // Empty badge for smell fail
+            }
+
             return <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}><span style={{ background: '#f5f5f5', color: '#c62828', padding: '2px 6px', borderRadius: '10px', fontSize: '9px' }}>Pending</span></div>;
         }
 
@@ -1034,7 +1048,8 @@ const buildQualityStatusRows = (entry: SampleEntry) => {
             const isSmellEntry = entry.failRemarks && entry.failRemarks.toLowerCase().includes('smell');
             if (isSmellEntry) {
                 const smellPart = entry.failRemarks!.replace(/^failed:\s*/i, '').trim();
-                statusRows.push({ label: 'Fail', subLabel: toTitleCase(smellPart), bg: '#ffebee', color: '#c62828' });
+                // Swap: show smell type as label, and 'Fail' as subLabel (below smell)
+                statusRows.push({ label: toTitleCase(smellPart), subLabel: 'Fail', bg: '#ffebee', color: '#c62828' });
             } else {
                 statusRows.push({ label: 'Fail', bg: '#ffebee', color: '#c62828' });
             }

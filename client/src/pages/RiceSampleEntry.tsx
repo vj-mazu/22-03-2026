@@ -510,16 +510,19 @@ const RiceSampleEntry: React.FC<{ defaultTab?: 'RICE_SAMPLE' | 'RICE_BOOK' }> = 
   const handleSubmitQualityParametersWithConfirm = (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    const isMissing = (val: any) => String(val ?? '').trim() === '';
+    const isProvided = (val: any) => !isMissing(val);
+
     // All fields mandatory for Rice except toggles (Moisture, Grains Count, Broken, Rice, Bend, Mix, Kandu, Oil, SK)
-    if (!qualityData.moisture) { showNotification('Moisture is required', 'error'); return; }
-    if (!qualityData.grainsCount) { showNotification('Grains Count is required', 'error'); return; }
-    if (!qualityData.mix) { showNotification('Broken is required', 'error'); return; }
-    if (!qualityData.cutting1) { showNotification('Rice is required', 'error'); return; }
-    if (!qualityData.bend1) { showNotification('Bend is required', 'error'); return; }
-    if (!qualityData.sk) { showNotification('Mix is required', 'error'); return; }
-    if (!qualityData.kandu) { showNotification('Kandu is required', 'error'); return; }
-    if (!qualityData.oil) { showNotification('Oil is required', 'error'); return; }
-    if (!qualityData.gramsReport) { showNotification('Grams Report is required', 'error'); return; }
+    if (isMissing(qualityData.moisture)) { showNotification('Moisture is required', 'error'); return; }
+    if (isMissing(qualityData.grainsCount)) { showNotification('Grains Count is required', 'error'); return; }
+    if (isMissing(qualityData.mix)) { showNotification('Broken is required', 'error'); return; }
+    if (isMissing(qualityData.cutting1)) { showNotification('Rice is required', 'error'); return; }
+    if (isMissing(qualityData.bend1)) { showNotification('Bend is required', 'error'); return; }
+    if (isMissing(qualityData.sk)) { showNotification('Mix is required', 'error'); return; }
+    if (isMissing(qualityData.kandu)) { showNotification('Kandu is required', 'error'); return; }
+    if (isMissing(qualityData.oil)) { showNotification('Oil is required', 'error'); return; }
+    if (isMissing(qualityData.gramsReport)) { showNotification('Grams Report is required', 'error'); return; }
 
     setShowQualitySaveConfirm(true);
   };

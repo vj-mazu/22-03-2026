@@ -1014,12 +1014,7 @@ const CookingReport: React.FC<CookingReportProps> = ({ entryType, excludeEntryTy
       // If not allotted yet, block.
       if (!assignedUser) return { canAdd: false, reason: 'Awaiting Assign' };
 
-      const currentUser = String(user?.username || '').trim().toLowerCase();
-      
-      // If current user is a staff/supervisor but NOT the assigned one, block.
-      if (isCookingStaffRole && currentUser && assignedUser !== currentUser) {
-        return { canAdd: false, reason: `Assigned to ${getCollectorLabel(entry.sampleCollectedBy || '-', supervisors)}` };
-      }
+      // All supervisors/managers can add cooking reports regardless of assignment
 
       if (!hasCurrentCycleQualityData(entry)) {
         return { canAdd: false, reason: 'Awaiting Quality' };
@@ -1856,10 +1851,10 @@ const CookingReport: React.FC<CookingReportProps> = ({ entryType, excludeEntryTy
                             onChange={(e) => {
                               setCookingData({ ...cookingData, cookingDoneBy: e.target.value });
                             }}
-                            disabled={isCookingStaffRole && isResampleWorkflowEntry(selectedEntry)}
+                            disabled={false}
                             style={{
                               width: '100%', padding: '6px 8px', border: '1px solid #999', borderRadius: '3px', fontSize: '13px',
-                              backgroundColor: isCookingStaffRole && isResampleWorkflowEntry(selectedEntry) ? '#f5f5f5' : 'white', marginBottom: '6px'
+                              backgroundColor: 'white', marginBottom: '6px'
                             }}
                           >
                             <option value="">-- Select from list --</option>

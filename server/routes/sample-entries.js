@@ -720,18 +720,27 @@ router.get('/tabs/loading-lots', authenticateToken, cacheMiddleware(30), async (
   try {
     const { page = 1, pageSize = 50, cursor, broker, variety, party, location, startDate, endDate, entryType, excludeEntryType } = req.query;
 
-    const where = {
-      workflowStatus: {
-        [Op.in]: ['LOT_ALLOTMENT', 'PHYSICAL_INSPECTION', 'INVENTORY_ENTRY', 'OWNER_FINANCIAL', 'MANAGER_FINANCIAL', 'FINAL_REVIEW', 'COMPLETED']
-      }
+    const baseWhere = {
+      [Op.or]: [
+        {
+          workflowStatus: {
+            [Op.in]: ['LOT_ALLOTMENT', 'PHYSICAL_INSPECTION', 'INVENTORY_ENTRY', 'OWNER_FINANCIAL', 'MANAGER_FINANCIAL', 'FINAL_REVIEW', 'COMPLETED']
+          }
+        },
+        {
+          lotSelectionDecision: 'FAIL',
+          workflowStatus: { [Op.notIn]: ['CANCELLED', 'FAILED'] }
+        }
+      ]
     };
-    if (broker) where.brokerName = { [Op.iLike]: `%${broker}%` };
-    if (variety) where.variety = { [Op.iLike]: `%${variety}%` };
-    if (party) where.partyName = { [Op.iLike]: `%${party}%` };
-    if (location) where.location = { [Op.iLike]: `%${location}%` };
-    if (startDate && endDate) where.entryDate = { [Op.between]: [startDate, endDate] };
-    if (entryType) where.entryType = entryType;
-    if (excludeEntryType) where.entryType = { [Op.ne]: excludeEntryType };
+    const where = { [Op.and]: [baseWhere] };
+    if (broker) where[Op.and].push({ brokerName: { [Op.iLike]: `%${broker}%` } });
+    if (variety) where[Op.and].push({ variety: { [Op.iLike]: `%${variety}%` } });
+    if (party) where[Op.and].push({ partyName: { [Op.iLike]: `%${party}%` } });
+    if (location) where[Op.and].push({ location: { [Op.iLike]: `%${location}%` } });
+    if (startDate && endDate) where[Op.and].push({ entryDate: { [Op.between]: [startDate, endDate] } });
+    if (entryType) where[Op.and].push({ entryType });
+    if (excludeEntryType) where[Op.and].push({ entryType: { [Op.ne]: excludeEntryType } });
 
     // Use cursor pagination if cursor provided, else fallback to offset
     const paginationQuery = buildCursorQuery(req.query, 'DESC', {
@@ -786,7 +795,14 @@ router.get('/tabs/loading-lots', authenticateToken, cacheMiddleware(30), async (
     });
 
     await attachLoadingLotsHistories(result.entries);
-    result.entries = result.entries.filter((entry) => String(entry?.lotSelectionDecision || '').toUpperCase() !== 'FAIL');
+    result.entries = result.entries.filter((entry) => {
+      const decision = String(entry?.lotSelectionDecision || '').toUpperCase();
+      if (decision === 'FAIL') {
+        // Only allow FAIL entries in Loading Lots if they have finalized price/offering
+        return entry.offering && (entry.offering.finalPrice || entry.offering.isFinalized);
+      }
+      return true;
+    });
 
     if (result.pagination) {
       res.json({ entries: result.entries, pagination: result.pagination });

@@ -658,6 +658,7 @@ class SampleEntryService {
       const updatedSmellHas = updates.smellHas !== undefined ? updates.smellHas : currentEntry.smellHas;
       
       if (updatedSmellHas && ['MEDIUM', 'DARK', 'ORANGE'].includes(String(updatedSmellType).toUpperCase())) {
+        updates.workflowStatus = 'FAILED';
         updates.lotSelectionDecision = 'FAIL';
         updates.lotSelectionAt = new Date();
         updates.lotSelectionByUserId = userId;

@@ -109,6 +109,7 @@ class QualityParametersService {
       if (shouldAutoFail && sampleEntry && lotSelectionDecision !== 'FAIL') {
         console.log(`[QUALITY] Auto-failing entry ${qualityData.sampleEntryId} due to smell: ${qualityData.smellType}`);
         await SampleEntryRepository.update(qualityData.sampleEntryId, {
+          workflowStatus: 'FAILED',
           lotSelectionDecision: 'FAIL',
           lotSelectionAt: new Date(),
           lotSelectionByUserId: userId,
@@ -252,6 +253,7 @@ class QualityParametersService {
       const shouldAutoFailPostUpdate = updates.smellHas && ['MEDIUM', 'DARK', 'ORANGE'].includes(String(updates.smellType).toUpperCase());
       if (shouldAutoFailPostUpdate) {
         await SampleEntryRepository.update(updates.sampleEntryId, {
+          workflowStatus: 'FAILED',
           lotSelectionDecision: 'FAIL',
           lotSelectionAt: new Date(),
           lotSelectionByUserId: userId,

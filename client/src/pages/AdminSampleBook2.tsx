@@ -951,11 +951,10 @@ const buildQualityStatusRows = (entry: SampleEntry) => {
         if (rows.length === 0) {
             if (entry.workflowStatus === 'CANCELLED') return <span style={{ color: '#999', fontSize: '10px' }}>-</span>;
             
-            // Check if it's a smell auto-fail decision
-            const isFailDecision = String(entry.lotSelectionDecision || '').toUpperCase() === 'FAIL' 
-                && String(entry.workflowStatus || '').toUpperCase() !== 'FAILED';
+            // Check if it's a smell auto-fail decision or already failed due to smell
+            const isAnyFailChoice = String(entry.lotSelectionDecision || '').toUpperCase() === 'FAIL' || entry.workflowStatus === 'FAILED';
             const isSmellEntry = entry.failRemarks && entry.failRemarks.toLowerCase().includes('smell');
-            if (isFailDecision && isSmellEntry) {
+            if (isAnyFailChoice && isSmellEntry) {
                 return null; // Empty badge for smell fail
             }
 
@@ -1049,7 +1048,7 @@ const buildQualityStatusRows = (entry: SampleEntry) => {
             if (isSmellEntry) {
                 const smellPart = entry.failRemarks!.replace(/^failed:\s*/i, '').trim();
                 // Swap: show smell type as label, and 'Fail' as subLabel (below smell)
-                statusRows.push({ label: toTitleCase(smellPart), subLabel: 'Fail', bg: '#ffebee', color: '#c62828' });
+                statusRows.push({ label: 'Fail', subLabel: toTitleCase(smellPart), bg: '#ffebee', color: '#c62828' });
             } else {
                 statusRows.push({ label: 'Fail', bg: '#ffebee', color: '#c62828' });
             }
